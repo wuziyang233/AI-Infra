@@ -136,6 +136,7 @@
         <h3 class="font-semibold text-gray-800">信源管理</h3>
         <div class="flex gap-2">
           <button onclick="initDefaults()" id="btn-init-defaults" class="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">🔄 初始化默认信源</button>
+          <button onclick="testChineseSources()" id="btn-test-zh" class="px-3 py-1.5 bg-slate-700 text-white text-sm rounded-lg hover:bg-slate-800 transition">测试中文源</button>
           <button onclick="showSourceModal()" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">+ 添加信源</button>
         </div>
       </div>
@@ -149,10 +150,11 @@
               <th class="text-left p-3">语言</th>
               <th class="text-left p-3">状态</th>
               <th class="text-left p-3">优先级</th>
+              <th class="text-left p-3">测试结果</th>
               <th class="text-left p-3">操作</th>
             </tr>
           </thead>
-          <tbody id="sources-table" class="divide-y"><tr><td colspan="7" class="p-4 text-gray-400">加载中...</td></tr></tbody>
+          <tbody id="sources-table" class="divide-y"><tr><td colspan="8" class="p-4 text-gray-400">加载中...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -270,6 +272,7 @@
 <script>
 // ═══════════ State ═══════════
 const API = '/api';
+let sourcesCache = [];
 
 // ═══════════ Tab Switching ═══════════
 document.querySelectorAll('.tab').forEach(btn => {
@@ -445,6 +448,7 @@ async function pushFeishu() {
 async function loadSources() {
   const r = await fetch(API + '/sources');
   const data = await r.json();
+  sourcesCache = data;
   const tbody = document.getElementById('sources-table');
 
   const categoryLabels = {
@@ -469,10 +473,13 @@ async function loadSources() {
       <td class="p-3 text-xs">${s.language === 'zh' ? '中文' : 'EN'}</td>
       <td class="p-3 text-xs">${statusBadges[s.status] || s.status || '-'}</td>
       <td class="p-3 text-xs">${s.priority || '-'}</td>
+      <td class="p-3 text-xs min-w-56">
+        <div id="source-test-${s.id}" class="text-gray-400">未测试</div>
+      </td>
       <td class="p-3">
         <button onclick="toggleSource(${s.id}, ${s.enabled})" class="text-${s.enabled ? 'yellow' : 'green'}-600 hover:underline text-xs mr-2">${s.enabled ? '禁用' : '启用'}</button>
         <button onclick="setSourceStatus(${s.id}, '${s.status === 'active' ? 'pending' : 'active'}')" class="text-indigo-600 hover:underline text-xs mr-2">${s.status === 'active' ? '设为待定' : '设为活跃'}</button>
-        <button onclick='testSource(${s.id}, ${JSON.stringify(s.name)})' class="text-blue-600 hover:underline text-xs mr-2">测试</button>
+        <button id="source-test-btn-${s.id}" onclick='testSource(${s.id}, ${JSON.stringify(s.name)})' class="text-blue-600 hover:underline text-xs mr-2">测试</button>
         <button onclick="deleteSource(${s.id})" class="text-red-500 hover:underline text-xs">删除</button>
       </td>
     </tr>`).join('');
@@ -520,21 +527,64 @@ async function setSourceStatus(id, status) {
 
 async function testSource(id, name) {
   const status = document.getElementById('op-status');
+  const resultEl = document.getElementById('source-test-' + id);
+  const btn = document.getElementById('source-test-btn-' + id);
   status.innerHTML = `<span class="spinner"></span> 正在测试信源：${name}`;
+  if (resultEl) {
+    resultEl.innerHTML = '<span class="spinner"></span> <span class="text-gray-500">测试中...</span>';
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '测试中';
+  }
   try {
     const r = await fetch(API + '/sources/' + id + '/test', { method: 'POST' });
     const d = await r.json();
     if (r.ok && d.ok) {
       status.textContent = `信源可用：${name}，${d.entry_count} 条，${d.latency_ms}ms。最新：${d.latest_title || '-'}`;
+      if (resultEl) resultEl.innerHTML = `
+        <div class="text-green-700 font-medium">可用 · ${d.entry_count} 条 · ${d.latency_ms}ms</div>
+        <div class="text-gray-500 truncate max-w-xs" title="${esc(d.latest_title || '')}">${esc(d.latest_title || '-')}</div>`;
       toast('信源测试通过', 'success');
     } else {
       status.textContent = `信源不可用：${name}，${d.message || '未知错误'}`;
+      if (resultEl) resultEl.innerHTML = `
+        <div class="text-red-600 font-medium">不可用 · ${d.latency_ms || '-'}ms</div>
+        <div class="text-gray-500 truncate max-w-xs" title="${esc(d.message || '')}">${esc(d.message || '未知错误')}</div>`;
       toast('信源测试失败', 'error');
     }
   } catch(e) {
     status.textContent = `信源测试失败：${name}`;
+    if (resultEl) resultEl.innerHTML = '<div class="text-red-600 font-medium">请求失败</div><div class="text-gray-500">服务无响应或网络超时</div>';
     toast('信源测试失败', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '测试';
+    }
   }
+}
+
+async function testChineseSources() {
+  const btn = document.getElementById('btn-test-zh');
+  const zhSources = sourcesCache.filter(s => s.language === 'zh' || s.category === 'china_ai' || s.category === 'wechat');
+  if (zhSources.length === 0) {
+    toast('没有中文信源', 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = `测试中 0/${zhSources.length}`;
+  let okCount = 0;
+  for (let i = 0; i < zhSources.length; i++) {
+    const source = zhSources[i];
+    btn.textContent = `测试中 ${i + 1}/${zhSources.length}`;
+    await testSource(source.id, source.name);
+    const resultEl = document.getElementById('source-test-' + source.id);
+    if (resultEl && resultEl.textContent.includes('可用')) okCount++;
+  }
+  btn.disabled = false;
+  btn.textContent = '测试中文源';
+  toast(`中文源测试完成：${okCount}/${zhSources.length} 可用`, okCount ? 'success' : 'error');
 }
 
 function showSourceModal() {
