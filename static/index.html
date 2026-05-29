@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Infra 决策情报</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; }
+  .app-shell { background: #f6f8fb; }
+  .topbar { box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06); }
+  .brand-mark { width: 2rem; height: 2rem; border-radius: 0.6rem; display: grid; place-items: center; background: #2563eb; color: white; font-weight: 800; font-size: 0.8rem; }
+  .icon-btn { border: 1px solid #dbe3ef; border-radius: 0.5rem; padding: 0.35rem 0.65rem; font-size: 0.75rem; color: #475569; background: white; }
+  .icon-btn:hover { background: #f8fafc; color: #0f172a; }
+  .markdown-body { max-width: none; }
+  .markdown-body h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem; color: #1e40af; }
+  .markdown-body h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1rem; }
+  .markdown-body ul { list-style: disc; padding-left: 1.5rem; }
+  .markdown-body li { margin-bottom: 0.25rem; }
+  .markdown-body a { color: #3b82f6; text-decoration: underline; }
+  .markdown-body a:hover { color: #1d4ed8; }
+  .markdown-body hr { margin: 1rem 0; }
+  .qa-msg { animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .spinner { border: 2px solid #e5e7eb; border-top: 2px solid #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; top: 1rem; right: 1rem; z-index: 100; padding: 0.75rem 1.25rem; border-radius: 0.5rem; color: #fff; animation: fadeIn 0.3s; }
+  .toast-success { background: #16a34a; }
+  .toast-error { background: #dc2626; }
+  .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+  .badge-active { background: #dcfce7; color: #166534; }
+  .badge-pending { background: #fef9c3; color: #854d0e; }
+  .badge-disabled { background: #f3f4f6; color: #6b7280; }
+</style>
+</head>
+<body class="app-shell min-h-screen">
+
+<!-- Header -->
+<header class="topbar bg-white sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-14">
+      <div class="flex items-center gap-3">
+        <span class="brand-mark">AI</span>
+        <div>
+          <h1 class="text-base font-bold text-gray-900 leading-tight">AI Infra 决策情报</h1>
+          <div class="text-xs text-gray-500 hidden sm:block">采集、日报、问答与飞书推送</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <span id="health-dot" class="w-2 h-2 rounded-full bg-gray-300"></span>
+          <span id="health-text" class="text-xs text-gray-500">检查中...</span>
+        </div>
+        <button onclick="logout()" class="icon-btn">退出</button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <nav class="flex gap-0 -mb-px">
+      <button class="tab tab-active px-4 py-2.5 text-sm font-medium" data-tab="dashboard">📊 仪表盘</button>
+      <button class="tab px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="sources">📡 信源</button>
+      <button class="tab px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="articles">📄 文章</button>
+      <button class="tab px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="reports">📰 日报</button>
+      <button class="tab px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="qa">💬 问答</button>
+    </nav>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+  <!-- ═══════ Dashboard ═══════ -->
+  <section id="tab-dashboard" class="tab-content">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">信源总数</div>
+        <div id="stat-sources" class="text-2xl font-bold text-gray-900 mt-1">-</div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">文章总数</div>
+        <div id="stat-articles" class="text-2xl font-bold text-gray-900 mt-1">-</div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">今日日报</div>
+        <div id="stat-reports" class="text-2xl font-bold text-gray-900 mt-1">-</div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">问答记录</div>
+        <div id="stat-qa" class="text-2xl font-bold text-gray-900 mt-1">-</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">最新日报</div>
+        <div id="status-report" class="text-base font-semibold text-gray-900 mt-2">加载中...</div>
+        <div id="status-report-sub" class="text-xs text-gray-500 mt-1"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">飞书推送</div>
+        <div id="status-feishu" class="text-base font-semibold text-gray-900 mt-2">加载中...</div>
+        <div id="status-feishu-sub" class="text-xs text-gray-500 mt-1"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-sm text-gray-500">最近采集</div>
+        <div id="status-collect" class="text-base font-semibold text-gray-900 mt-2">加载中...</div>
+        <div id="status-collect-sub" class="text-xs text-gray-500 mt-1"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <h3 class="font-semibold text-gray-800 mb-3">⚡ 快捷操作</h3>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="collectAll()" id="btn-collect" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">采集全部信源</button>
+          <button onclick="generateReport()" id="btn-report" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">生成今日日报</button>
+          <button onclick="pushFeishu()" id="btn-feishu" class="px-4 py-2 bg-sky-600 text-white text-sm rounded-lg hover:bg-sky-700 transition">推送到飞书</button>
+        </div>
+        <div id="op-status" class="mt-3 text-sm text-gray-600"></div>
+        <div id="collect-results" class="mt-2 text-sm hidden"></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm border p-4">
+        <h3 class="font-semibold text-gray-800 mb-3">🕐 最近采集日志</h3>
+        <div id="recent-logs" class="text-sm space-y-1 max-h-32 overflow-y-auto">
+          <span class="text-gray-400">加载中...</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ Sources ═══════ -->
+  <section id="tab-sources" class="tab-content hidden">
+    <div class="bg-white rounded-lg shadow-sm border">
+      <div class="p-4 border-b flex items-center justify-between">
+        <h3 class="font-semibold text-gray-800">信源管理</h3>
+        <div class="flex gap-2">
+          <button onclick="initDefaults()" id="btn-init-defaults" class="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">🔄 初始化默认信源</button>
+          <button onclick="showSourceModal()" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">+ 添加信源</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-600">
+            <tr>
+              <th class="text-left p-3">名称</th>
+              <th class="text-left p-3">URL</th>
+              <th class="text-left p-3">分类</th>
+              <th class="text-left p-3">语言</th>
+              <th class="text-left p-3">状态</th>
+              <th class="text-left p-3">优先级</th>
+              <th class="text-left p-3">操作</th>
+            </tr>
+          </thead>
+          <tbody id="sources-table" class="divide-y"><tr><td colspan="7" class="p-4 text-gray-400">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ Articles ═══════ -->
+  <section id="tab-articles" class="tab-content hidden">
+    <div class="bg-white rounded-lg shadow-sm border p-4 mb-4">
+      <div class="flex flex-wrap gap-3 items-end">
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">日期</label>
+          <input type="date" id="article-date" class="border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">信源ID</label>
+          <input type="number" id="article-source" class="border rounded px-2 py-1 text-sm w-20" placeholder="全部">
+        </div>
+        <button onclick="loadArticles()" class="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">搜索</button>
+        <span id="article-count" class="text-sm text-gray-500 ml-2"></span>
+      </div>
+    </div>
+    <div id="articles-list" class="space-y-3">
+      <div class="bg-white rounded-lg shadow-sm border p-4 text-gray-400 text-sm">点击搜索加载文章</div>
+    </div>
+  </section>
+
+  <!-- ═══════ Reports ═══════ -->
+  <section id="tab-reports" class="tab-content hidden">
+    <div class="flex gap-6">
+      <div class="w-64 flex-shrink-0">
+        <div class="bg-white rounded-lg shadow-sm border">
+          <div class="p-3 border-b font-semibold text-sm text-gray-800">日报列表</div>
+          <div id="report-list" class="divide-y max-h-[70vh] overflow-y-auto text-sm">
+            <div class="p-3 text-gray-400">加载中...</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div id="report-viewer" class="bg-white rounded-lg shadow-sm border p-6 markdown-body text-sm min-h-[70vh]">
+          <span class="text-gray-400">选择一份日报查看</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ Q&A ═══════ -->
+  <section id="tab-qa" class="tab-content hidden">
+    <div class="max-w-3xl mx-auto">
+      <div id="qa-messages" class="space-y-4 mb-4 min-h-[50vh] max-h-[60vh] overflow-y-auto bg-white rounded-lg shadow-sm border p-4">
+        <div class="text-center text-gray-400 text-sm py-8">👋 向我提问 AI Infra 相关的问题</div>
+      </div>
+      <div class="flex gap-2">
+        <input type="text" id="qa-input" placeholder="输入问题，例如：最近AI Infra有什么重要趋势？"
+               class="flex-1 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+               onkeydown="if(event.key==='Enter')askQuestion()">
+        <button onclick="askQuestion()" id="qa-btn" class="px-6 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">发送</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ═══════ Source Modal ═══════ -->
+<div id="source-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+    <h3 id="modal-title" class="text-lg font-semibold mb-4">添加信源</h3>
+    <input type="hidden" id="source-edit-id">
+    <div class="grid grid-cols-2 gap-3">
+      <div class="mb-3">
+        <label class="text-sm text-gray-600 block mb-1">名称</label>
+        <input id="source-name" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：Hacker News">
+      </div>
+      <div class="mb-3">
+        <label class="text-sm text-gray-600 block mb-1">类型</label>
+        <select id="source-type" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="rss">RSS</option>
+          <option value="url">URL</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="text-sm text-gray-600 block mb-1">分类</label>
+        <select id="source-category" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="overseas_ai">海外 AI</option>
+          <option value="china_ai">国内 AI</option>
+          <option value="infra">基础设施</option>
+          <option value="wechat">公众号</option>
+          <option value="product">产品</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="text-sm text-gray-600 block mb-1">语言</label>
+        <select id="source-language" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+        </select>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="text-sm text-gray-600 block mb-1">URL</label>
+      <input id="source-url" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://hnrss.org/newest?q=AI">
+    </div>
+    <div class="mb-4">
+      <label class="text-sm text-gray-600 block mb-1">说明</label>
+      <input id="source-desc" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="选填">
+    </div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeSourceModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+      <button onclick="saveSource()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ═══════════ State ═══════════
+const API = '/api';
+
+// ═══════════ Tab Switching ═══════════
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('tab-active'));
+    document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+    btn.classList.add('tab-active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'dashboard') loadDashboard();
+    if (btn.dataset.tab === 'sources') loadSources();
+    if (btn.dataset.tab === 'reports') loadReportList();
+    if (btn.dataset.tab === 'qa') document.getElementById('qa-input')?.focus();
+  });
+});
+
+// ═══════════ Toast ═══════════
+function toast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ═══════════ Health ═══════════
+async function checkHealth() {
+  try {
+    const r = await fetch(API + '/health');
+    const d = await r.json();
+    const dot = document.getElementById('health-dot');
+    const txt = document.getElementById('health-text');
+    if (d.status === 'ok') { dot.className = 'w-2 h-2 rounded-full bg-green-500'; txt.textContent = '服务正常'; }
+    else { dot.className = 'w-2 h-2 rounded-full bg-red-500'; txt.textContent = '异常'; }
+  } catch(e) { document.getElementById('health-text').textContent = '离线'; }
+}
+
+async function logout() {
+  try {
+    await fetch(API + '/auth/logout', { method: 'POST' });
+  } finally {
+    window.location.href = '/login';
+  }
+}
+
+// ═══════════ Dashboard ═══════════
+async function loadDashboard() {
+  try {
+    const [src, art, rpt, qa, logs, pushLogs] = await Promise.all([
+      fetch(API + '/sources').then(r => r.json()),
+      fetch(API + '/articles?size=1').then(r => r.json()),
+      fetch(API + '/reports?size=1').then(r => r.json()),
+      fetch(API + '/qa/history?limit=1').then(r => r.json()),
+      fetch(API + '/collect/status?limit=5').then(r => r.json()),
+      fetch(API + '/reports/push-feishu/status?limit=1').then(r => r.json()).catch(() => []),
+    ]);
+    document.getElementById('stat-sources').textContent = src.length;
+    document.getElementById('stat-articles').textContent = art.length > 0 ? '有数据' : '0';
+    document.getElementById('stat-reports').textContent = rpt.length > 0 ? '已生成' : '暂无';
+    document.getElementById('stat-qa').textContent = qa.length;
+    const logsDiv = document.getElementById('recent-logs');
+    if (logs.length === 0) { logsDiv.innerHTML = '<span class="text-gray-400">暂无日志</span>'; }
+    else {
+      logsDiv.innerHTML = logs.map(l =>
+        `<div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full ${l.status==='success'?'bg-green-400':'bg-red-400'}"></span>${esc(l.message)} <span class="text-gray-400 ml-auto">${l.created_at}</span></div>`
+      ).join('');
+    }
+    renderDashboardStatus(rpt, logs, pushLogs);
+  } catch(e) { console.error(e); }
+}
+
+function renderDashboardStatus(reports, collectLogs, pushLogs) {
+  const report = reports[0];
+  document.getElementById('status-report').textContent = report ? report.report_date : '暂无日报';
+  document.getElementById('status-report-sub').textContent = report
+    ? `${report.article_count || 0} 篇文章 · ${report.created_at || ''}`
+    : '生成日报后会在这里显示';
+
+  const push = pushLogs[0];
+  document.getElementById('status-feishu').innerHTML = push
+    ? `<span class="${push.status === 'success' ? 'text-green-600' : 'text-red-600'}">${push.status === 'success' ? '推送成功' : '推送失败'}</span>`
+    : '暂无记录';
+  document.getElementById('status-feishu-sub').textContent = push
+    ? `${push.report_date || '-'} · ${push.created_at || ''}${push.message ? ' · ' + push.message : ''}`
+    : '手动或定时推送后会在这里显示';
+
+  const latest = collectLogs[0];
+  const successCount = collectLogs.filter(l => l.status === 'success').length;
+  const errorCount = collectLogs.filter(l => l.status === 'error').length;
+  document.getElementById('status-collect').textContent = latest ? `${successCount} 成功 / ${errorCount} 失败` : '暂无记录';
+  document.getElementById('status-collect-sub').textContent = latest
+    ? `${latest.created_at || ''} · 最近 ${collectLogs.length} 条日志`
+    : '采集执行后会在这里显示';
+}
+
+async function collectAll() {
+  const btn = document.getElementById('btn-collect');
+  const status = document.getElementById('op-status');
+  const resultsDiv = document.getElementById('collect-results');
+  btn.disabled = true; btn.textContent = '采集...';
+  status.innerHTML = '<span class="spinner"></span> 正在采集...';
+  resultsDiv.classList.add('hidden');
+  try {
+    const r = await fetch(API + '/collect', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok) {
+      status.textContent = d.message;
+      toast(d.message, d.total_new > 0 ? 'success' : 'error');
+      // Show per-source results
+      if (d.results && d.results.length > 0) {
+        resultsDiv.classList.remove('hidden');
+        resultsDiv.innerHTML = '<div class="mt-2 text-xs font-medium text-gray-500">各信源采集结果：</div>' +
+          d.results.map(res =>
+            `<div class="flex items-center gap-2 text-xs mt-1">
+              <span class="w-2 h-2 rounded-full ${res.status === 'success' ? 'bg-green-400' : 'bg-red-400'}"></span>
+              <span class="font-medium">${esc(res.source)}</span>
+              <span class="text-gray-500">${res.new_articles} 篇新文章</span>
+              ${res.status !== 'success' ? `<span class="text-red-500">${esc(res.status)}</span>` : ''}
+            </div>`
+          ).join('');
+      }
+    } else {
+      status.textContent = d.detail || '未知错误';
+      toast(d.detail || '采集失败', 'error');
+    }
+  } catch(e) { status.textContent = '网络请求失败，请检查服务是否启动'; toast('采集失败', 'error'); }
+  btn.disabled = false; btn.textContent = '采集全部信源';
+  loadDashboard();
+}
+
+async function generateReport() {
+  const btn = document.getElementById('btn-report');
+  const status = document.getElementById('op-status');
+  btn.disabled = true; btn.textContent = '生成中...';
+  status.innerHTML = '<span class="spinner"></span> 正在调用大模型...';
+  try {
+    const r = await fetch(API + '/reports/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+    const d = await r.json();
+    if (r.ok) {
+      toast('日报生成成功', 'success');
+      status.textContent = '日报已生成';
+      loadDashboard();
+    } else {
+      status.textContent = d.detail || '未知错误';
+      toast(d.detail || '生成失败', 'error');
+    }
+  } catch(e) { status.textContent = '网络请求失败，请检查服务是否启动'; toast('生成失败', 'error'); }
+  btn.disabled = false; btn.textContent = '生成今日日报';
+}
+
+async function pushFeishu() {
+  const btn = document.getElementById('btn-feishu');
+  const status = document.getElementById('op-status');
+  btn.disabled = true; btn.textContent = '推送中...';
+  status.innerHTML = '<span class="spinner"></span> 正在推送飞书卡片...';
+  try {
+    const r = await fetch(API + '/reports/push-feishu', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok) {
+      status.textContent = `已推送 ${d.report_date} 日报到飞书`;
+      toast('飞书推送成功', 'success');
+    } else {
+      status.textContent = d.detail || '未知错误';
+      toast(d.detail || '推送失败', 'error');
+    }
+  } catch(e) {
+    status.textContent = '网络请求失败，请检查服务是否启动';
+    toast('推送失败', 'error');
+  }
+  btn.disabled = false; btn.textContent = '推送到飞书';
+}
+
+// ═══════════ Sources ═══════════
+async function loadSources() {
+  const r = await fetch(API + '/sources');
+  const data = await r.json();
+  const tbody = document.getElementById('sources-table');
+
+  const categoryLabels = {
+    'overseas_ai': '<span class="badge badge-active">海外 AI</span>',
+    'china_ai': '<span class="badge badge-active">国内 AI</span>',
+    'infra': '<span class="badge badge-active">基础设施</span>',
+    'wechat': '<span class="badge badge-pending">公众号</span>',
+    'product': '<span class="badge badge-active">产品</span>',
+  };
+
+  const statusBadges = {
+    'active': '<span class="badge badge-active">活跃</span>',
+    'pending': '<span class="badge badge-pending">待定</span>',
+    'disabled': '<span class="badge badge-disabled">禁用</span>',
+  };
+
+  tbody.innerHTML = data.map(s => `
+    <tr class="hover:bg-gray-50">
+      <td class="p-3 font-medium text-xs">${esc(s.name)}</td>
+      <td class="p-3 text-gray-500 max-w-xs truncate text-xs">${esc(s.url)}</td>
+      <td class="p-3">${categoryLabels[s.category] || s.category || '-'}</td>
+      <td class="p-3 text-xs">${s.language === 'zh' ? '中文' : 'EN'}</td>
+      <td class="p-3 text-xs">${statusBadges[s.status] || s.status || '-'}</td>
+      <td class="p-3 text-xs">${s.priority || '-'}</td>
+      <td class="p-3">
+        <button onclick="toggleSource(${s.id}, ${s.enabled})" class="text-${s.enabled ? 'yellow' : 'green'}-600 hover:underline text-xs mr-2">${s.enabled ? '禁用' : '启用'}</button>
+        <button onclick="deleteSource(${s.id})" class="text-red-500 hover:underline text-xs">删除</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function toggleSource(id, currentlyEnabled) {
+  await fetch(API + '/sources/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ enabled: currentlyEnabled ? 0 : 1 })
+  });
+  toast(currentlyEnabled ? '已禁用' : '已启用', 'success');
+  loadSources();
+}
+
+async function initDefaults() {
+  const btn = document.getElementById('btn-init-defaults');
+  btn.disabled = true;
+  btn.textContent = '初始化中...';
+  try {
+    const r = await fetch(API + '/sources/init-defaults', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok) {
+      toast(`成功：新增 ${d.created} 个，跳过 ${d.skipped} 个（已存在）`, 'success');
+    } else {
+      toast(d.detail || '初始化失败', 'error');
+    }
+  } catch(e) {
+    toast('网络请求失败', 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = '🔄 初始化默认信源';
+  loadSources();
+}
+
+function showSourceModal() {
+  document.getElementById('modal-title').textContent = '添加信源';
+  document.getElementById('source-edit-id').value = '';
+  document.getElementById('source-name').value = '';
+  document.getElementById('source-url').value = '';
+  document.getElementById('source-type').value = 'rss';
+  document.getElementById('source-category').value = 'overseas_ai';
+  document.getElementById('source-language').value = 'en';
+  document.getElementById('source-desc').value = '';
+  document.getElementById('source-modal').classList.remove('hidden');
+}
+
+function closeSourceModal() { document.getElementById('source-modal').classList.add('hidden'); }
+
+async function saveSource() {
+  const id = document.getElementById('source-edit-id').value;
+  const body = {
+    name: document.getElementById('source-name').value,
+    url: document.getElementById('source-url').value,
+    type: document.getElementById('source-type').value,
+    category: document.getElementById('source-category').value,
+    language: document.getElementById('source-language').value,
+    description: document.getElementById('source-desc').value || '',
+  };
+  const url = id ? API + '/sources/' + id : API + '/sources';
+  const method = id ? 'PUT' : 'POST';
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (r.ok) { toast(id ? '已更新' : '已添加', 'success'); closeSourceModal(); loadSources(); }
+  else { const e = await r.json(); toast(e.detail, 'error'); }
+}
+
+async function deleteSource(id) {
+  if (!confirm('确定删除此信源？关联的文章也会被删除。')) return;
+  await fetch(API + '/sources/' + id, { method: 'DELETE' });
+  toast('已删除', 'success'); loadSources();
+}
+
+// ═══════════ Articles ═══════════
+async function loadArticles() {
+  const date = document.getElementById('article-date').value;
+  const source = document.getElementById('article-source').value;
+  let url = API + '/articles?size=50';
+  if (date) url += '&date=' + date;
+  if (source) url += '&source_id=' + source;
+  const r = await fetch(url);
+  const data = await r.json();
+  document.getElementById('article-count').textContent = `共 ${data.length} 篇`;
+  const list = document.getElementById('articles-list');
+  if (data.length === 0) { list.innerHTML = '<div class="bg-white rounded-lg shadow-sm border p-4 text-gray-400 text-sm">没有找到文章</div>'; return; }
+  list.innerHTML = data.map(a => `
+    <div class="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition cursor-pointer" onclick="toggleArticle(${a.id}, this)">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <h4 class="font-medium text-gray-900 text-sm leading-snug">${esc(a.title)}</h4>
+          <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+            <span>信源 ${a.source_id}</span>
+            <span>${a.published_at || '-'}</span>
+            ${a.relevance ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">相关度 ${(a.relevance*100).toFixed(0)}%</span>` : ''}
+          </div>
+        </div>
+        ${a.summary ? `<span class="text-xs text-gray-500 hidden md:block w-64 flex-shrink-0 line-clamp-2">${esc(a.summary)}</span>` : ''}
+      </div>
+      <div id="article-detail-${a.id}" class="hidden mt-3 pt-3 border-t text-sm text-gray-600">
+        ${a.summary ? `<div class="mb-2"><span class="font-medium">摘要：</span>${esc(a.summary)}</div>` : ''}
+        ${a.content ? `<div class="mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded">${esc(a.content).substring(0,500)}...</div>` : ''}
+        <a href="${esc(a.url)}" target="_blank" class="text-blue-600 hover:underline text-xs">🔗 查看原文</a>
+      </div>
+    </div>`).join('');
+}
+
+function toggleArticle(id, el) {
+  const detail = document.getElementById('article-detail-' + id);
+  const isHidden = detail.classList.contains('hidden');
+  document.querySelectorAll('[id^="article-detail-"]').forEach(d => d.classList.add('hidden'));
+  if (isHidden) detail.classList.remove('hidden');
+}
+
+// ═══════════ Reports ═══════════
+async function loadReportList() {
+  const r = await fetch(API + '/reports?size=20');
+  const data = await r.json();
+  const list = document.getElementById('report-list');
+  if (data.length === 0) { list.innerHTML = '<div class="p-3 text-gray-400">暂无日报</div>'; return; }
+  list.innerHTML = data.map(rp => `
+    <div class="p-3 cursor-pointer hover:bg-blue-50 transition" onclick="viewReport('${rp.report_date}', this)">
+      <div class="font-medium text-sm">${rp.report_date}</div>
+      <div class="text-xs text-gray-500 mt-0.5">${rp.article_count} 篇 · ${rp.sections?.length || 0} 节</div>
+    </div>`).join('');
+}
+
+async function viewReport(date, el) {
+  document.querySelectorAll('#report-list > div').forEach(d => d.classList.remove('bg-blue-50'));
+  if (el) el.classList.add('bg-blue-50');
+  const r = await fetch(API + '/reports/' + date);
+  const data = await r.json();
+  let markdown = '';
+  try {
+    const mr = await fetch(API + '/reports/latest');
+    if (mr.ok) { const md = await mr.json(); if (md.report_date === date) markdown = md.markdown; }
+  } catch(e) {}
+  if (!markdown && data.sections) {
+    markdown = `# ${data.title}\n\n`;
+    data.sections.forEach(s => { markdown += `## ${s.title}\n\n${s.content}\n\n`; });
+  }
+  // Parse markdown with marked and open links in new tab
+  const viewer = document.getElementById('report-viewer');
+  viewer.innerHTML = marked.parse(markdown || '无内容');
+  // Make all links open in new tab
+  viewer.querySelectorAll('a').forEach(a => {
+    if (!a.getAttribute('target')) a.setAttribute('target', '_blank');
+    if (!a.getAttribute('rel')) a.setAttribute('rel', 'noopener noreferrer');
+  });
+}
+
+// ═══════════ Q&A ═══════════
+async function askQuestion() {
+  const input = document.getElementById('qa-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  const msgs = document.getElementById('qa-messages');
+  const btn = document.getElementById('qa-btn');
+  msgs.innerHTML += `<div class="qa-msg flex justify-end"><div class="bg-blue-600 text-white rounded-lg px-4 py-2 max-w-[80%] text-sm">${esc(q)}</div></div>`;
+  msgs.innerHTML += `<div class="qa-msg flex justify-start"><div class="bg-gray-100 rounded-lg px-4 py-2 text-sm"><span class="spinner"></span> 思考中...</div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+  btn.disabled = true;
+  try {
+    const r = await fetch(API + '/qa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question: q}) });
+    const d = await r.json();
+    msgs.lastElementChild.remove();
+    const sourcesHtml = d.sources && d.sources.length > 0
+      ? `<div class="mt-2 pt-2 border-t text-xs text-gray-400">📚 参考：${d.sources.map((s,i) => `<a href="${esc(s.url||'#')}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">${esc(s.title)}</a>`).join('、')}</div>`
+      : '';
+    msgs.innerHTML += `<div class="qa-msg flex justify-start"><div class="bg-gray-100 rounded-lg px-4 py-2 max-w-[85%] text-sm">${marked.parse(d.answer)}${sourcesHtml}</div></div>`;
+  } catch(e) {
+    msgs.lastElementChild.remove();
+    msgs.innerHTML += `<div class="qa-msg flex justify-start"><div class="bg-red-50 text-red-600 rounded-lg px-4 py-2 text-sm">请求失败，请重试</div></div>`;
+  }
+  btn.disabled = false;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ═══════════ Helpers ═══════════
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ═══════════ Init ═══════════
+checkHealth();
+loadDashboard();
+setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>

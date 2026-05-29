@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - AI Infra 决策情报</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f8fb;
+    --panel: #ffffff;
+    --line: #dbe3ef;
+    --text: #172033;
+    --muted: #637083;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --danger: #b42318;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+    background:
+      linear-gradient(135deg, rgba(37, 99, 235, 0.12), transparent 34%),
+      linear-gradient(315deg, rgba(20, 184, 166, 0.12), transparent 30%),
+      var(--bg);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  main {
+    width: min(920px, 100%);
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    background: var(--panel);
+    border: 1px solid rgba(219, 227, 239, 0.9);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(22, 35, 64, 0.14);
+    overflow: hidden;
+  }
+  .intro {
+    padding: 44px;
+    background: #eef4ff;
+    border-right: 1px solid var(--line);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #0f3b8f;
+    margin-bottom: 44px;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 800;
+  }
+  h1 {
+    margin: 0 0 16px;
+    font-size: 34px;
+    line-height: 1.18;
+    letter-spacing: 0;
+  }
+  .intro p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 36px;
+  }
+  .summary div {
+    border: 1px solid rgba(37, 99, 235, 0.14);
+    border-radius: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.62);
+  }
+  .summary strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .summary span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .form-panel {
+    padding: 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    letter-spacing: 0;
+  }
+  .hint {
+    margin: 0 0 28px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin: 16px 0 8px;
+  }
+  input {
+    width: 100%;
+    height: 46px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0 13px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.16s, box-shadow 0.16s;
+  }
+  input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  }
+  button {
+    width: 100%;
+    height: 46px;
+    margin-top: 24px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.16s, transform 0.16s;
+  }
+  button:hover { background: var(--primary-dark); }
+  button:active { transform: translateY(1px); }
+  button:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+  }
+  .error {
+    min-height: 20px;
+    margin-top: 14px;
+    color: var(--danger);
+    font-size: 13px;
+  }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; }
+    .intro {
+      padding: 30px;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .form-panel { padding: 30px; }
+    .brand { margin-bottom: 24px; }
+    h1 { font-size: 28px; }
+    .summary { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section class="intro">
+    <div class="brand">
+      <div class="brand-mark">AI</div>
+      <span>AI Infra 决策情报</span>
+    </div>
+    <h1>进入你的 AI 基础设施情报台</h1>
+    <p>集中查看信源、文章、日报和问答记录。服务会按计划采集信息、生成日报，并推送到飞书。</p>
+    <div class="summary">
+      <div><strong>08:00</strong><span>自动采集</span></div>
+      <div><strong>09:00</strong><span>生成日报</span></div>
+      <div><strong>飞书</strong><span>卡片推送</span></div>
+    </div>
+  </section>
+  <section class="form-panel">
+    <h2>登录</h2>
+    <p class="hint">请输入服务器配置的访问账号和密码。</p>
+    <form id="login-form">
+      <label for="username">用户名</label>
+      <input id="username" name="username" autocomplete="username" autofocus>
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password">
+      <button id="login-button" type="submit">登录</button>
+      <div id="error" class="error"></div>
+    </form>
+  </section>
+</main>
+<script>
+const form = document.getElementById('login-form');
+const button = document.getElementById('login-button');
+const error = document.getElementById('error');
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  error.textContent = '';
+  button.disabled = true;
+  button.textContent = '登录中...';
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value
+      })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || '登录失败');
+    }
+    window.location.href = '/';
+  } catch (err) {
+    error.textContent = err.message || '登录失败';
+  } finally {
+    button.disabled = false;
+    button.textContent = '登录';
+  }
+});
+</script>
+</body>
+</html>
