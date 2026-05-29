@@ -471,6 +471,8 @@ async function loadSources() {
       <td class="p-3 text-xs">${s.priority || '-'}</td>
       <td class="p-3">
         <button onclick="toggleSource(${s.id}, ${s.enabled})" class="text-${s.enabled ? 'yellow' : 'green'}-600 hover:underline text-xs mr-2">${s.enabled ? '禁用' : '启用'}</button>
+        <button onclick="setSourceStatus(${s.id}, '${s.status === 'active' ? 'pending' : 'active'}')" class="text-indigo-600 hover:underline text-xs mr-2">${s.status === 'active' ? '设为待定' : '设为活跃'}</button>
+        <button onclick='testSource(${s.id}, ${JSON.stringify(s.name)})' class="text-blue-600 hover:underline text-xs mr-2">测试</button>
         <button onclick="deleteSource(${s.id})" class="text-red-500 hover:underline text-xs">删除</button>
       </td>
     </tr>`).join('');
@@ -504,6 +506,35 @@ async function initDefaults() {
   btn.disabled = false;
   btn.textContent = '🔄 初始化默认信源';
   loadSources();
+}
+
+async function setSourceStatus(id, status) {
+  await fetch(API + '/sources/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status })
+  });
+  toast(status === 'active' ? '已加入采集' : '已设为待定', 'success');
+  loadSources();
+}
+
+async function testSource(id, name) {
+  const status = document.getElementById('op-status');
+  status.innerHTML = `<span class="spinner"></span> 正在测试信源：${name}`;
+  try {
+    const r = await fetch(API + '/sources/' + id + '/test', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      status.textContent = `信源可用：${name}，${d.entry_count} 条，${d.latency_ms}ms。最新：${d.latest_title || '-'}`;
+      toast('信源测试通过', 'success');
+    } else {
+      status.textContent = `信源不可用：${name}，${d.message || '未知错误'}`;
+      toast('信源测试失败', 'error');
+    }
+  } catch(e) {
+    status.textContent = `信源测试失败：${name}`;
+    toast('信源测试失败', 'error');
+  }
 }
 
 function showSourceModal() {

@@ -5,6 +5,7 @@
 ## 功能
 
 - RSS/URL 信源管理
+- 信源连通性测试
 - 自动采集 AI Infra 相关文章
 - DeepSeek 生成中文决策情报日报
 - SQLite 存储文章、日报、问答历史
@@ -153,6 +154,7 @@ WEB_AUTH_PASSWORD=你的强密码
 GET  /api/health
 GET  /api/sources
 POST /api/sources/init-defaults
+POST /api/sources/{id}/test
 POST /api/collect
 GET  /api/articles
 POST /api/reports/generate

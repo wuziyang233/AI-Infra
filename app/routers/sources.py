@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone, timedelta
 from app.models.database import get_db
-from app.models.schemas import SourceCreate, SourceUpdate, SourceOut, InitDefaultsResult
+from app.models.schemas import SourceCreate, SourceUpdate, SourceOut, InitDefaultsResult, SourceTestResult
 from app.services.default_sources import DEFAULT_SOURCES
+from app.services.source_tester import test_source
 
 BJT = timezone(timedelta(hours=8))
 
@@ -103,6 +104,16 @@ def delete_source(source_id: int):
     db.commit()
     db.close()
     return {"ok": True}
+
+
+@router.post("/{source_id}/test", response_model=SourceTestResult)
+def test_existing_source(source_id: int):
+    db = get_db()
+    row = db.execute("SELECT * FROM sources WHERE id=?", (source_id,)).fetchone()
+    db.close()
+    if not row:
+        raise HTTPException(404, "Source not found")
+    return test_source(row["url"], row["type"])
 
 
 @router.post("/init-defaults", response_model=InitDefaultsResult)

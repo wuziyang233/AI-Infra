@@ -57,6 +57,15 @@ class InitDefaultsResult(BaseModel):
     skipped: int
     sources: list[SourceOut]
 
+class SourceTestResult(BaseModel):
+    ok: bool
+    status_code: Optional[int] = None
+    entry_count: int
+    latest_title: Optional[str] = None
+    latest_url: Optional[str] = None
+    latency_ms: int
+    message: str
+
 class CollectSourceResult(BaseModel):
     source: str
     source_id: int
