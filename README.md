@@ -209,6 +209,10 @@ journalctl -u ai-infra-intel -f
 
 更多部署说明见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
+
+## 获取RSS
+https://wechat2rss.xlab.app/
+
 ## 数据和安全
 
 以下内容不会提交到 Git：
